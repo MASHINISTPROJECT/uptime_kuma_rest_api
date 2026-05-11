@@ -1,4 +1,3 @@
-```markdown
 # Uptime Kuma REST API Wrapper
 
 A comprehensive REST API wrapper for Uptime Kuma's Socket.io API, enabling full monitor and notification management via simple HTTP endpoints and curl commands.
@@ -16,7 +15,6 @@ A comprehensive REST API wrapper for Uptime Kuma's Socket.io API, enabling full 
 - **Query Parameter Filtering**: Use simple `?group=X&tag=Y` instead of JSON for all bulk operations
 - **.env Configuration**: Simple environment variable setup
 - **Zero External Dependencies**: Just curl for all operations
-```
 
 ## Quick Start
 
