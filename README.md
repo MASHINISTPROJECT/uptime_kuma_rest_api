@@ -16,6 +16,7 @@ A comprehensive REST API wrapper for Uptime Kuma's Socket.io API, enabling full 
 - **Query Parameter Filtering**: Use simple `?group=X&tag=Y` instead of JSON for all bulk operations
 - **.env Configuration**: Simple environment variable setup
 - **Zero External Dependencies**: Just curl for all operations
+```
 
 ## Quick Start
 
@@ -319,4 +320,3 @@ MIT License - see [LICENSE](LICENSE) file for details
 ## Disclaimer
 
 This project uses Uptime Kuma's internal Socket.io API which is not officially supported for third-party integrations. Use at your own risk and expect potential breaking changes with Uptime Kuma updates.
-```
