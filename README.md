@@ -1,15 +1,16 @@
 # Uptime Kuma REST API Wrapper
 
-A comprehensive REST API wrapper for Uptime Kuma's Socket.io API, enabling full monitor and notification management via simple HTTP endpoints and curl commands.
+A comprehensive REST API wrapper for Uptime Kuma's Socket.io API, enabling full monitor, notification, and status page management via simple HTTP endpoints and curl commands.
 
 **✅ Compatible with Uptime Kuma 2.3.2**
 
 ## Features
 
-- **Complete REST API** for Uptime Kuma management
+- **23 REST API Endpoints** for complete Uptime Kuma management
 - **Monitor Operations**: Create, list, update, pause, resume, delete
 - **Bulk Operations**: Update, control, and manage multiple monitors at once
 - **Notification Management**: Create, list, test, delete notifications
+- **Status Page Management**: Create, read, update, delete status pages and assign monitors
 - **Advanced Filtering**: By group, tag, name patterns (wildcard), and monitor type
 - **Bulk Notification Assignment**: Set, add, or remove notifications from multiple monitors
 - **Query Parameter Filtering**: Use simple `?group=X&tag=Y` instead of JSON for all bulk operations
@@ -82,6 +83,16 @@ The API will be available at `http://127.0.0.1:5001`
 |--------|----------|-------------|
 | PUT | `/monitors/bulk-notifications` | Add/remove notifications to monitors |
 | PUT | `/monitors/set-notifications` | Replace all notifications on monitors |
+
+### Status Pages
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/status-pages` | List all status pages |
+| POST | `/status-pages` | Create a new status page |
+| GET | `/status-pages/<slug>` | Get a status page by slug |
+| PUT | `/status-pages/<slug>` | Update a status page |
+| DELETE | `/status-pages/<slug>` | Delete a status page |
+| POST | `/status-pages/<slug>/monitors` | Add monitors to a status page |
 
 ### Settings
 | Method | Endpoint | Description |
@@ -203,7 +214,7 @@ curl -X POST http://127.0.0.1:5001/notifications/1/test
 curl -X DELETE http://127.0.0.1:5001/notifications/1
 ```
 
-### Set Notifications on Monitors (Simplest Way)
+### Set Notifications on Monitors
 
 ```bash
 # Set notification ID 3 for all monitors
@@ -229,6 +240,34 @@ curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?action=add&notifi
 # Remove notification from monitors
 curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?action=remove&notification_ids=1" \
   -H "Content-Type: application/json"
+```
+
+### Status Page Management
+
+```bash
+# List all status pages
+curl http://127.0.0.1:5001/status-pages
+
+# Get a specific status page
+curl http://127.0.0.1:5001/status-pages/my-page
+
+# Create a status page
+curl -X POST http://127.0.0.1:5001/status-pages \
+  -H "Content-Type: application/json" \
+  -d '{"title":"My Status Page","slug":"my-page"}'
+
+# Update a status page
+curl -X PUT http://127.0.0.1:5001/status-pages/my-page \
+  -H "Content-Type: application/json" \
+  -d '{"description":"Updated description"}'
+
+# Add monitors to a status page
+curl -X POST http://127.0.0.1:5001/status-pages/my-page/monitors \
+  -H "Content-Type: application/json" \
+  -d '{"monitor_ids":[1,2,3]}'
+
+# Delete a status page
+curl -X DELETE http://127.0.0.1:5001/status-pages/my-page
 ```
 
 ### Get Settings
@@ -300,7 +339,7 @@ API_DEBUG=false
 
 | UK Version | Status |
 |------------|--------|
-| 2.3.2 | ✅ Fully tested |
+| 2.3.2 | ✅ Fully tested (23 endpoints) |
 | 2.x | Should work (minor changes possible) |
 | 1.x | Not supported |
 

@@ -33,6 +33,7 @@ class UptimeKumaClient:
         self.authenticated = False
         self.monitors_cache = {}
         self.notifications_cache = {}
+        self.status_pages_cache = {}
         self.last_update = 0
         
     def connect(self):
@@ -56,6 +57,10 @@ class UptimeKumaClient:
         @self.sio.on('notificationList')
         def on_notification_list(data):
             self.notifications_cache = data
+        
+        @self.sio.on('statusPageList')
+        def on_status_page_list(data):
+            self.status_pages_cache = data
         
         try:
             self.sio.connect(UPTIME_KUMA_URL)
@@ -864,6 +869,252 @@ def get_settings():
         return jsonify({'success': True, 'settings': result})
     else:
         return jsonify({'success': False, 'error': 'Failed to retrieve settings'}), 400
+
+# Status Page Endpoints
+
+@app.route('/status-pages', methods=['GET'])
+def list_status_pages():
+    """List all status pages"""
+    if not kuma_client.authenticated:
+        return jsonify({'error': 'Not connected or authenticated'}), 401
+    
+    status_pages = kuma_client.status_pages_cache
+    return jsonify({
+        'success': True,
+        'status_pages': status_pages,
+        'count': len(status_pages)
+    })
+
+@app.route('/status-pages/<slug>', methods=['GET'])
+def get_status_page(slug):
+    """Get a specific status page by slug"""
+    if not kuma_client.authenticated:
+        return jsonify({'error': 'Not connected or authenticated'}), 401
+    
+    result = {'ok': False, 'config': None}
+    
+    def page_callback(response):
+        nonlocal result
+        if response:
+            result = response
+    
+    kuma_client.sio.emit('getStatusPage', (slug,), namespace='/', callback=page_callback)
+    
+    timeout = 50
+    while not result.get('ok') and timeout > 0:
+        time.sleep(0.1)
+        timeout -= 1
+    
+    if result.get('ok'):
+        return jsonify({
+            'success': True,
+            'status_page': result.get('config')
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'Status page not found'
+        }), 404
+
+@app.route('/status-pages', methods=['POST'])
+def create_status_page():
+    """Create a new status page"""
+    if not kuma_client.authenticated:
+        return jsonify({'error': 'Not connected or authenticated'}), 401
+    
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No status page data provided'}), 400
+    
+    title = data.get('title', 'New Status Page')
+    slug = data.get('slug', title.lower().replace(' ', '-'))
+    
+    result = {'ok': False}
+    
+    def add_callback(response):
+        nonlocal result
+        if response:
+            result = response
+    
+    # UK 2.3.2: addStatusPage(title, slug, callback)
+    kuma_client.sio.emit('addStatusPage', (title, slug), namespace='/', callback=add_callback)
+    
+    timeout = 50
+    while not result.get('ok') and timeout > 0:
+        time.sleep(0.1)
+        timeout -= 1
+    
+    if result.get('ok'):
+        return jsonify({
+            'success': True,
+            'message': 'Status page created successfully',
+            'slug': slug
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': result.get('msg', 'Unknown error')
+        }), 400
+
+@app.route('/status-pages/<slug>', methods=['PUT'])
+def update_status_page(slug):
+    """Update an existing status page"""
+    if not kuma_client.authenticated:
+        return jsonify({'error': 'Not connected or authenticated'}), 401
+    
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No update data provided'}), 400
+    
+    # First get existing page
+    get_result = {'ok': False, 'config': None}
+    
+    def get_callback(response):
+        nonlocal get_result
+        if response:
+            get_result = response
+    
+    kuma_client.sio.emit('getStatusPage', (slug,), namespace='/', callback=get_callback)
+    
+    timeout = 50
+    while not get_result.get('ok') and timeout > 0:
+        time.sleep(0.1)
+        timeout -= 1
+    
+    if not get_result.get('ok'):
+        return jsonify({'success': False, 'error': 'Status page not found'}), 404
+    
+    # Merge existing config with updates
+    config = get_result.get('config', {})
+    config.update(data)
+    
+    # Ensure slug stays the same
+    config['slug'] = slug
+    
+    save_result = {'ok': False}
+    
+    def save_callback(response):
+        nonlocal save_result
+        if response:
+            save_result = response
+    
+    # saveStatusPage expects: (slug, config, imgDataUrl, publicGroupList, callback)
+    kuma_client.sio.emit('saveStatusPage', (slug, config, '', []), namespace='/', callback=save_callback)
+    
+    timeout = 50
+    while not save_result.get('ok') and timeout > 0:
+        time.sleep(0.1)
+        timeout -= 1
+    
+    if save_result.get('ok'):
+        return jsonify({
+            'success': True,
+            'message': 'Status page updated successfully'
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': save_result.get('msg', 'Unknown error')
+        }), 400
+
+@app.route('/status-pages/<slug>', methods=['DELETE'])
+def delete_status_page(slug):
+    """Delete a status page"""
+    if not kuma_client.authenticated:
+        return jsonify({'error': 'Not connected or authenticated'}), 401
+    
+    result = {'ok': False}
+    
+    def delete_callback(response):
+        nonlocal result
+        if response:
+            result = response
+    
+    # UK 2.3.2: deleteStatusPage(slug, callback)
+    kuma_client.sio.emit('deleteStatusPage', (slug,), namespace='/', callback=delete_callback)
+    
+    timeout = 50
+    while not result.get('ok') and timeout > 0:
+        time.sleep(0.1)
+        timeout -= 1
+    
+    if result.get('ok'):
+        return jsonify({
+            'success': True,
+            'message': 'Status page deleted successfully'
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': result.get('msg', 'Status Page is not found')
+        }), 404
+
+@app.route('/status-pages/<slug>/monitors', methods=['POST'])
+def add_monitor_to_status_page(slug):
+    """Add monitors to a status page (requires full config update via PUT)"""
+    if not kuma_client.authenticated:
+        return jsonify({'error': 'Not connected or authenticated'}), 401
+    
+    data = request.json
+    if not data or 'monitor_ids' not in data:
+        return jsonify({'error': 'monitor_ids array is required'}), 400
+    
+    monitor_ids = data['monitor_ids']
+    if not isinstance(monitor_ids, list):
+        monitor_ids = [monitor_ids]
+    
+    # First get existing page config
+    get_result = {'ok': False, 'config': None}
+    
+    def get_callback(response):
+        nonlocal get_result
+        if response:
+            get_result = response
+    
+    kuma_client.sio.emit('getStatusPage', (slug,), namespace='/', callback=get_callback)
+    
+    timeout = 50
+    while not get_result.get('ok') and timeout > 0:
+        time.sleep(0.1)
+        timeout -= 1
+    
+    if not get_result.get('ok'):
+        return jsonify({'success': False, 'error': 'Status page not found'}), 404
+    
+    config = get_result.get('config', {})
+    
+    # Build publicGroupList with monitors
+    public_group_list = [{
+        'name': 'Default Group',
+        'monitorList': [{'id': mid} for mid in monitor_ids]
+    }]
+    
+    save_result = {'ok': False}
+    
+    def save_callback(response):
+        nonlocal save_result
+        if response:
+            save_result = response
+    
+    # saveStatusPage expects: (slug, config, imgDataUrl, publicGroupList, callback)
+    kuma_client.sio.emit('saveStatusPage', (slug, config, '', public_group_list), namespace='/', callback=save_callback)
+    
+    timeout = 50
+    while not save_result.get('ok') and timeout > 0:
+        time.sleep(0.1)
+        timeout -= 1
+    
+    if save_result.get('ok'):
+        return jsonify({
+            'success': True,
+            'message': f'Added {len(monitor_ids)} monitor(s) to status page',
+            'monitors_added': monitor_ids
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': save_result.get('msg', 'Unknown error')
+        }), 400
 
 if __name__ == '__main__':
     print("\n=== Uptime Kuma REST API Wrapper ===")
