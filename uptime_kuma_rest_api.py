@@ -317,6 +317,7 @@ def create_monitor():
     monitor_data.setdefault('timeout', 30)
     monitor_data.setdefault('active', True)
     monitor_data.setdefault('accepted_statuscodes', ['200-299'])
+    monitor_data.setdefault('conditions', [])
     
     result = kuma_client.create_monitor(monitor_data)
     
@@ -353,6 +354,7 @@ def create_bulk_monitors():
         monitor_data.setdefault('timeout', 30)
         monitor_data.setdefault('active', True)
         monitor_data.setdefault('accepted_statuscodes', ['200-299'])
+        monitor_data.setdefault('conditions', [])
         
         result = kuma_client.create_monitor(monitor_data)
         
@@ -877,6 +879,25 @@ def list_status_pages():
     """List all status pages"""
     if not kuma_client.authenticated:
         return jsonify({'error': 'Not connected or authenticated'}), 401
+    
+    # If cache is empty, try to refresh via getStatusPageList
+    if not kuma_client.status_pages_cache:
+        result = {'ok': False, 'statusPages': {}}
+        
+        def list_callback(response):
+            nonlocal result
+            if response and response.get('ok'):
+                result = response
+        
+        kuma_client.sio.emit('getStatusPageList', namespace='/', callback=list_callback)
+        
+        timeout = 30
+        while not result.get('ok') and timeout > 0:
+            time.sleep(0.1)
+            timeout -= 1
+        
+        if result.get('ok'):
+            kuma_client.status_pages_cache = result.get('statusPages', {})
     
     status_pages = kuma_client.status_pages_cache
     return jsonify({

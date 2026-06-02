@@ -169,7 +169,7 @@ curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?name_pattern=*api*" \
 
 ```bash
 # Pause all ping monitors
-curl -X POST "http://127.0.0.1:5001/monitors/bulk-control?type=ping&action=pause"
+curl -X POST "http://127.0.0.1:5001/monitors/bulk-control?type=ping&action=pause" -H "Content-Type: application/json" -d "{}"
 
 # Resume monitors by name pattern
 curl -X POST "http://127.0.0.1:5001/monitors/bulk-control?name_pattern=*Bulk*&action=resume"
