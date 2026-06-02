@@ -339,6 +339,7 @@ API_DEBUG=false
 
 | UK Version | Status |
 |------------|--------|
+| 2.4.0 | ✅ Fully tested (23 endpoints) |
 | 2.3.2 | ✅ Fully tested (23 endpoints) |
 | 2.x | Should work (minor changes possible) |
 | 1.x | Not supported |
